@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Galaxy Computer — Invoice</title>
+<style>
+  :root{
+    --paper:#fbfaf7;
+    --ink:#1a1a1a;
+    --ink-soft:#5c5c5c;
+    --line:#1a1a1a;
+    --blue:#1f6fb2;
+    --blue-deep:#124a78;
+    --accent-bg:#eef4f9;
+    --danger:#b23b3b;
+    --radius:10px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:#e9e7e1;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    padding-bottom:40px;
+  }
+  .topbar{
+    background:var(--blue-deep);
+    color:#fff;
+    padding:16px 18px 14px;
+    position:sticky; top:0; z-index:20;
+  }
+  .topbar h1{
+    font-size:17px; margin:0; font-weight:700; letter-spacing:.3px;
+  }
+  .topbar p{margin:2px 0 0; font-size:12px; color:#cfe0ee;}
+  .tabs{
+    display:flex; gap:6px; margin-top:12px;
+  }
+  .tab{
+    flex:1; text-align:center; padding:9px 4px; border-radius:8px;
+    font-size:13px; font-weight:600; background:rgba(255,255,255,.12); color:#e7eef5;
+    border:none; cursor:pointer;
+  }
+  .tab.active{background:#fff; color:var(--blue-deep);}
+
+  .wrap{max-width:560px; margin:0 auto; padding:14px;}
+  .card{
+    background:var(--paper);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:14px;
+    box-shadow:0 1px 3px rgba(0,0,0,.08);
+    border:1px solid #e2ded3;
+  }
+  .field{margin-bottom:12px;}
+  .field label{
+    display:block; font-size:11.5px; font-weight:700; color:var(--ink-soft);
+    text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px;
+  }
+  input[type=text], input[type=number], input[type=tel]{
+    width:100%; padding:10px 11px; border:1px solid #d6d1c4; border-radius:8px;
+    font-size:15px; background:#fff; color:var(--ink);
+  }
+  input:focus{outline:2px solid var(--blue); outline-offset:1px;}
+  .meta-row{display:flex; gap:10px;}
+  .meta-row .field{flex:1;}
+  .meta-static{
+    background:var(--accent-bg); border-radius:8px; padding:9px 11px; font-size:13.5px;
+    color:var(--blue-deep); font-weight:600;
+  }
+
+  .item-row{
+    display:grid; grid-template-columns:1fr 52px 1fr 22px;
+    gap:6px; align-items:end; margin-bottom:10px; padding-bottom:10px;
+    border-bottom:1px dashed #d6d1c4;
+  }
+  .item-row:last-child{border-bottom:none;}
+  .item-row label{font-size:10px;}
+  .item-row .del{
+    background:none; border:none; color:var(--danger); font-size:20px; line-height:1;
+    padding:8px 0; cursor:pointer;
+  }
+  .add-item{
+    width:100%; padding:10px; border-radius:8px; border:1.5px dashed var(--blue);
+    background:none; color:var(--blue-deep); font-weight:700; font-size:13.5px; cursor:pointer;
+    margin-top:2px;
+  }
+
+  .total-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding-top:12px; margin-top:6px; border-top:2px solid var(--ink);
+  }
+  .total-row .label{font-weight:700; font-size:14px;}
+  .total-row .value{font-weight:800; font-size:19px; color:var(--blue-deep);}
+
+  .btn-primary{
+    width:100%; padding:14px; border-radius:9px; border:none;
+    background:var(--blue-deep); color:#fff; font-size:15.5px; font-weight:700;
+    cursor:pointer; margin-top:4px;
+  }
+  .btn-primary:active{opacity:.85;}
+  .btn-secondary{
+    width:100%; padding:12px; border-radius:9px; border:1px solid #c9c3b4;
+    background:#fff; color:var(--ink); font-size:14px; font-weight:600; cursor:pointer;
+    margin-top:8px;
+  }
+
+  /* Invoice preview - styled like the physical receipt */
+  .invoice{
+    background:#fff; border-radius:var(--radius); padding:22px 20px 18px;
+    border:1px solid #e2ded3; box-shadow:0 1px 3px rgba(0,0,0,.08);
+  }
+  .inv-head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .inv-head-left p{margin:2px 0; font-size:12.5px;}
+  .inv-head-left b{display:inline-block; width:64px;}
+  .inv-head-right{text-align:right;}
+  .inv-head-right .store{font-size:17px; font-weight:800; letter-spacing:.3px;}
+  .inv-head-right .phone{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .dashed{border:none; border-top:2px dashed var(--ink); margin:12px 0;}
+  .inv-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  .inv-table th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px;
+    padding-bottom:4px; color:var(--ink-soft);
+  }
+  .inv-table th.r, .inv-table td.r{text-align:right;}
+  .inv-table td{padding:3px 0; vertical-align:top;}
+  .inv-footer{display:flex; justify-content:space-between; align-items:flex-end; gap:10px; margin-top:2px;}
+  .bank-info p{margin:2px 0; font-size:11px; color:var(--ink-soft);}
+  .grand{font-size:14px; font-weight:800;}
+  .grand .amt{color:var(--blue-deep);}
+  .sign-row{display:flex; justify-content:space-between; margin-top:34px; font-size:12px;}
+  .sign-row div{text-align:center; width:45%;}
+  .sign-line{margin-top:46px; border-top:1px dashed var(--ink-soft); padding-top:4px; color:var(--ink-soft); font-size:10.5px;}
+
+  /* history */
+  .hist-item{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 0; border-bottom:1px solid #e2ded3;
+  }
+  .hist-item:last-child{border-bottom:none;}
+  .hist-item .no{font-weight:700; font-size:14px;}
+  .hist-item .sub{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .hist-item .amt{font-weight:800; color:var(--blue-deep); font-size:14.5px;}
+  .hist-actions{display:flex; gap:8px; margin-top:8px;}
+  .hist-actions button{
+    flex:1; padding:7px; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer;
+    border:1px solid #c9c3b4; background:#fff;
+  }
+  .empty{text-align:center; color:var(--ink-soft); font-size:13.5px; padding:30px 10px;}
+
+  .hidden{display:none !important;}
+  .toast{
+    position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff; padding:10px 18px; border-radius:20px;
+    font-size:13px; z-index:100; box-shadow:0 3px 10px rgba(0,0,0,.25);
+  }
+
+  @media print{
+    body *{visibility:hidden;}
+    #printArea, #printArea *{visibility:visible;}
+    #printArea{position:absolute; top:0; left:0; width:100%; padding:0; margin:0; box-shadow:none; border:none;}
+    .topbar, .tabs, .no-print{display:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Galaxy Computer</h1>
+  <p>Aplikasi Invoice &amp; Laporan Transaksi</p>
+  <div class="tabs">
+    <button class="tab active" data-tab="buat">Buat Invoice</button>
+    <button class="tab" data-tab="riwayat">Riwayat</button>
+    <button class="tab" data-tab="pengaturan">Pengaturan</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- TAB: BUAT -->
+  <div id="tab-buat">
+    <div class="card">
+      <div class="meta-row">
+        <div class="field">
+          <label>No. Transaksi</label>
+          <div class="meta-static" id="noTransDisplay">—</div>
+        </div>
+        <div class="field">
+          <label>Tanggal &amp; Jam</label>
+          <div class="meta-static" id="dateTimeDisplay">—</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Yth (Nama Pelanggan)</label>
+        <input type="text" id="ythInput" placeholder="Nama pelanggan / toko">
+      </div>
+    </div>
+
+    <div class="card">
+      <label style="font-size:11.5px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.5px;">Daftar Barang</label>
+      <div id="itemsContainer" style="margin-top:10px;"></div>
+      <button class="add-item" id="addItemBtn">+ Tambah Barang</button>
+
+      <div class="total-row">
+        <div class="label">Grand Total</div>
+        <div class="value" id="grandTotalDisplay">Rp 0</div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="saveInvoiceBtn">Simpan &amp; Cetak Invoice</button>
+  </div>
+
+  <!-- TAB: RIWAYAT -->
+  <div id="tab-riwayat" class="hidden">
+    <div class="card">
+      <button class="btn-secondary" id="exportBtn" style="margin-top:0;">⬇ Download Laporan (CSV)</button>
+    </div>
+    <div class="card" id="historyList">
+      <div class="empty">Memuat riwayat…</div>
+    </div>
+  </div>
+
+  <!-- TAB: PENGATURAN -->
+  <div id="tab-pengaturan" class="hidden">
+    <div class="card">
+      <div class="field">
+        <label>Nama Toko</label>
+        <input type="text" id="setNama">
+      </div>
+      <div class="field">
+        <label>No. Telepon</label>
+        <input type="text" id="setTelp">
+      </div>
+      <div class="field">
+        <label>Rekening 1 (contoh: BCA 123456 A.N. ...)</label>
+        <input type="text" id="setBank1">
+      </div>
+      <div class="field">
+        <label>Rekening 2 (opsional)</label>
+        <input type="text" id="setBank2">
+      </div>
+      <div class="field">
+        <label>Nomor Transaksi Berikutnya</label>
+        <input type="number" id="setNextNo">
+      </div>
+      <button class="btn-primary" id="saveSettingsBtn">Simpan Pengaturan</button>
+    </div>
+  </div>
+
+  <!-- INVOICE PREVIEW (shown after save) -->
+  <div id="invoicePreviewWrap" class="hidden">
+    <div class="invoice" id="printArea">
+      <div class="inv-head">
+        <div class="inv-head-left">
+          <p><b>No. Trans</b>: <span id="pv-no"></span></p>
+          <p><b>Tanggal</b>: <span id="pv-date"></span></p>
+          <p><b>Jam</b>: <span id="pv-time"></span></p>
+          <p><b>Yth</b>: <span id="pv-yth"></span></p>
+        </div>
+        <div class="inv-head-right">
+          <div class="store" id="pv-store"></div>
+          <div class="phone" id="pv-phone"></div>
+        </div>
+      </div>
+      <hr class="dashed">
+      <table class="inv-table">
+        <thead>
+          <tr><th>No</th><th>Nama Barang</th><th class="r">Banyak</th><th class="r">Harga Satuan</th><th class="r">Jumlah</th></tr>
+        </thead>
+        <tbody id="pv-items"></tbody>
+      </table>
+      <hr class="dashed">
+      <div class="inv-footer">
+        <div class="bank-info" id="pv-banks"></div>
+        <div class="grand">GRAND TOTAL<br><span class="amt" id="pv-total"></span></div>
+      </div>
+      <div class="sign-row">
+        <div><div class="sign-line">Penerima</div></div>
+        <div><div class="sign-line">Hormat Kami</div></div>
+      </div>
+    </div>
+    <div class="no-print" style="margin-top:12px; display:flex; gap:8px;">
+      <button class="btn-secondary" style="margin-top:0;" id="printBtn">🖨 Cetak / Simpan PDF</button>
+      <button class="btn-secondary" style="margin-top:0;" id="closePreviewBtn">Tutup</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DEFAULT_SETTINGS = {
+  nama: "GALAXY COMPUTER",
+  telp: "082247028751",
+  bank1: "BCA 7680467654 I GUSTI PUTU IRVAN HADY",
+  bank2: "SEABANK 901942610476 I GUSTI PUTU IRVAN HADY",
+  nextNo: 1554
+};
+
+let settings = {...DEFAULT_SETTINGS};
+let items = [];
+let itemUid = 0;
+
+function rupiah(n){
+  return "Rp " + Math.round(n).toLocaleString('id-ID');
+}
+function pad(n, len){ return String(n).padStart(len,'0'); }
+
+// ---------- Tabs ----------
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    ['buat','riwayat','pengaturan'].forEach(t=>{
+      document.getElementById('tab-'+t).classList.toggle('hidden', t!==btn.dataset.tab);
+    });
+    document.getElementById('invoicePreviewWrap').classList.add('hidden');
+    if(btn.dataset.tab==='riwayat') loadHistory();
+  });
+});
+
+// ---------- Items ----------
+function addItemRow(prefill){
+  const id = 'it'+(itemUid++);
+  const row = {id, nama:'', qty:1, harga:0};
+  if(prefill) Object.assign(row, prefill);
+  items.push(row);
+  renderItems();
+}
+function renderItems(){
+  const c = document.getElementById('itemsContainer');
+  c.innerHTML = '';
+  items.forEach((it)=>{
+    const div = document.createElement('div');
+    div.className = 'item-row';
+    div.innerHTML = `
+      <div>
+        <label>Nama Barang</label>
+        <input type="text" data-field="nama" data-id="${it.id}" value="${it.nama.replace(/"/g,'&quot;')}" placeholder="Nama barang">
+      </div>
+      <div>
+        <label>Qty</label>
+        <input type="number" min="0" data-field="qty" data-id="${it.id}" value="${it.qty}">
+      </div>
+      <div>
+        <label>Harga Satuan</label>
+        <input type="number" min="0" data-field="harga" data-id="${it.id}" value="${it.harga}">
+      </div>
+      <button class="del" data-del="${it.id}" title="Hapus">×</button>
+    `;
+    c.appendChild(div);
+  });
+  c.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const id = e.target.dataset.id;
+      const field = e.target.dataset.field;
+      const item = items.find(i=>i.id===id);
+      if(!item) return;
+      item[field] = field==='nama' ? e.target.value : parseFloat(e.target.value)||0;
+      updateGrandTotal();
+    });
+  });
+  c.querySelectorAll('[data-del]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      items = items.filter(i=>i.id!==b.dataset.del);
+      renderItems();
+      updateGrandTotal();
+    });
+  });
+  updateGrandTotal();
+}
+function updateGrandTotal(){
+  const total = items.reduce((s,i)=> s + (i.qty*i.harga), 0);
+  document.getElementById('grandTotalDisplay').textContent = rupiah(total);
+  return total;
+}
+document.getElementById('addItemBtn').addEventListener('click', ()=>addItemRow());
+
+// ---------- Meta (no trans, date/time) ----------
+function refreshMeta(){
+  document.getElementById('noTransDisplay').textContent = pad(settings.nextNo, 5);
+  const now = new Date();
+  const dd = pad(now.getDate(),2), mm = pad(now.getMonth()+1,2), yyyy = now.getFullYear();
+  const hh = pad(now.getHours(),2), min = pad(now.getMinutes(),2);
+  document.getElementById('dateTimeDisplay').textContent = `${dd}-${mm}-${yyyy}  ${hh}:${min}`;
+}
+setInterval(refreshMeta, 30000);
+
+// ---------- Storage helpers ----------
+async function loadSettings(){
+  try{
+    const r = await window.storage.get('settings', false);
+    if(r && r.value) settings = {...DEFAULT_SETTINGS, ...JSON.parse(r.value)};
+  }catch(e){ /* not set yet, use defaults */ }
+  document.getElementById('setNama').value = settings.nama;
+  document.getElementById('setTelp').value = settings.telp;
+  document.getElementById('setBank1').value = settings.bank1;
+  document.getElementById('setBank2').value = settings.bank2;
+  document.getElementById('setNextNo').value = settings.nextNo;
+  refreshMeta();
+}
+async function saveSettingsToStorage(){
+  try{
+    await window.storage.set('settings', JSON.stringify(settings), false);
+  }catch(e){ showToast('Gagal menyimpan pengaturan'); }
+}
+
+document.getElementById('saveSettingsBtn').addEventListener('click', async ()=>{
+  settings.nama = document.getElementById('setNama').value.trim() || DEFAULT_SETTINGS.nama;
+  settings.telp = document.getElementById('setTelp').value.trim();
+  settings.bank1 = document.getElementById('setBank1').value.trim();
+  settings.bank2 = document.getElementById('setBank2').value.trim();
+  settings.nextNo = parseInt(document.getElementById('setNextNo').value) || settings.nextNo;
+  await saveSettingsToStorage();
+  refreshMeta();
+  showToast('Pengaturan disimpan');
+});
+
+// ---------- Save invoice ----------
+document.getElementById('saveInvoiceBtn').addEventListener('click', async ()=>{
+  const yth = document.getElementById('ythInput').value.trim();
+  const validItems = items.filter(i=>i.nama.trim() && i.qty>0);
+  if(!yth){ showToast('Isi nama pelanggan (Yth) dulu'); return; }
+  if(validItems.length===0){ showToast('Tambahkan minimal 1 barang'); return; }
+
+  const now = new Date();
+  const noTrans = pad(settings.nextNo, 5);
+  const invoice = {
+    noTrans,
+    tanggal: `${pad(now.getDate(),2)}-${pad(now.getMonth()+1,2)}-${now.getFullYear()}`,
+    jam: `${pad(now.getHours(),2)}:${pad(now.getMinutes(),2)}`,
+    yth,
+    items: validItems.map(i=>({nama:i.nama, qty:i.qty, harga:i.harga, jumlah:i.qty*i.harga})),
+    total: validItems.reduce((s,i)=>s+i.qty*i.harga,0),
+    createdAt: now.toISOString()
+  };
+
+  try{
+    const res = await window.storage.set('invoice:'+noTrans, JSON.stringify(invoice), false);
+    if(!res){ showToast('Gagal menyimpan invoice'); return; }
+    settings.nextNo += 1;
+    await saveSettingsToStorage();
+    showInvoicePreview(invoice);
+    // reset form
+    items = [];
+    addItemRow();
+    document.getElementById('ythInput').value = '';
+    refreshMeta();
+    showToast('Invoice tersimpan');
+  }catch(e){
+    showToast('Terjadi kesalahan saat menyimpan');
+  }
+});
+
+function showInvoicePreview(inv){
+  document.getElementById('pv-no').textContent = inv.noTrans;
+  document.getElementById('pv-date').textContent = inv.tanggal;
+  document.getElementById('pv-time').textContent = inv.jam;
+  document.getElementById('pv-yth').textContent = inv.yth;
+  document.getElementById('pv-store').textContent = settings.nama;
+  document.getElementById('pv-phone').textContent = settings.telp;
+  document.getElementById('pv-total').textContent = rupiah(inv.total);
+  const banksHtml = [settings.bank1, settings.bank2].filter(Boolean).map(b=>`<p>${b}</p>`).join('');
+  document.getElementById('pv-banks').innerHTML = banksHtml;
+  const rows = inv.items.map((it,idx)=>`
+    <tr>
+      <td>${idx+1}.</td>
+      <td>${it.nama}</td>
+      <td class="r">${it.qty}</td>
+      <td class="r">${rupiah(it.harga)}</td>
+      <td class="r">${rupiah(it.jumlah)}</td>
+    </tr>`).join('');
+  document.getElementById('pv-items').innerHTML = rows;
+  document.getElementById('invoicePreviewWrap').classList.remove('hidden');
+  document.getElementById('invoicePreviewWrap').scrollIntoView({behavior:'smooth'});
+}
+document.getElementById('closePreviewBtn').addEventListener('click', ()=>{
+  document.getElementById('invoicePreviewWrap').classList.add('hidden');
+});
+document.getElementById('printBtn').addEventListener('click', ()=> window.print());
+
+// ---------- History ----------
+async function loadHistory(){
+  const el = document.getElementById('historyList');
+  el.innerHTML = '<div class="empty">Memuat riwayat…</div>';
+  try{
+    const listRes = await window.storage.list('invoice:', false);
+    const keys = (listRes && listRes.keys) ? listRes.keys : [];
+    if(keys.length===0){ el.innerHTML = '<div class="empty">Belum ada transaksi tersimpan.</div>'; return; }
+    const invoices = [];
+    for(const k of keys){
+      try{
+        const r = await window.storage.get(k, false);
+        if(r && r.value) invoices.push(JSON.parse(r.value));
+      }catch(e){}
+    }
+    invoices.sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''));
+    el.innerHTML = '';
+    invoices.forEach(inv=>{
+      const div = document.createElement('div');
+      div.className = 'hist-item';
+      div.style.flexDirection = 'column';
+      div.style.alignItems = 'stretch';
+      div.innerHTML = `
+        <div style="display:flex; justify-content:space-between;">
+          <div>
+            <div class="no">No. ${inv.noTrans} — ${inv.yth}</div>
+            <div class="sub">${inv.tanggal} · ${inv.jam} · ${inv.items.length} item</div>
+          </div>
+          <div class="amt">${rupiah(inv.total)}</div>
+        </div>
+        <div class="hist-actions">
+          <button data-view="${inv.noTrans}">Lihat / Cetak</button>
+          <button data-delete="${inv.noTrans}" style="color:var(--danger);">Hapus</button>
+        </div>
+      `;
+      el.appendChild(div);
+    });
+    el.querySelectorAll('[data-view]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const inv = invoices.find(i=>i.noTrans===b.dataset.view);
+        if(inv) showInvoicePreview(inv);
+      });
+    });
+    el.querySelectorAll('[data-delete]').forEach(b=>{
+      b.addEventListener('click', async ()=>{
+        if(!confirm('Hapus transaksi No. '+b.dataset.delete+'?')) return;
+        try{
+          await window.storage.delete('invoice:'+b.dataset.delete, false);
+          showToast('Transaksi dihapus');
+          loadHistory();
+        }catch(e){ showToast('Gagal menghapus'); }
+      });
+    });
+  }catch(e){
+    el.innerHTML = '<div class="empty">Gagal memuat riwayat.</div>';
+  }
+}
+
+// ---------- Export CSV ----------
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  try{
+    const listRes = await window.storage.list('invoice:', false);
+    const keys = (listRes && listRes.keys) ? listRes.keys : [];
+    if(keys.length===0){ showToast('Belum ada data untuk diexport'); return; }
+    const invoices = [];
+    for(const k of keys){
+      try{
+        const r = await window.storage.get(k, false);
+        if(r && r.value) invoices.push(JSON.parse(r.value));
+      }catch(e){}
+    }
+    invoices.sort((a,b)=> (a.createdAt||'').localeCompare(b.createdAt||''));
+    let csv = 'No Transaksi,Tanggal,Jam,Yth,Nama Barang,Banyak,Harga Satuan,Jumlah,Grand Total Invoice\n';
+    invoices.forEach(inv=>{
+      inv.items.forEach((it,idx)=>{
+        csv += [
+          inv.noTrans, inv.tanggal, inv.jam,
+          `"${inv.yth.replace(/"/g,'""')}"`,
+          `"${it.nama.replace(/"/g,'""')}"`,
+          it.qty, it.harga, it.jumlah,
+          idx===0 ? inv.total : ''
+        ].join(',') + '\n';
+      });
+    });
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `laporan-galaxy-computer-${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Laporan CSV diunduh');
+  }catch(e){
+    showToast('Gagal membuat laporan');
+  }
+});
+
+// ---------- Toast ----------
+function showToast(msg){
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2200);
+}
+
+// ---------- Init ----------
+(async function init(){
+  await loadSettings();
+  addItemRow({nama:'', qty:1, harga:0});
+})();
+</script>
+
+</body>
+</html>
