@@ -304,6 +304,8 @@
 
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const DEFAULT_SETTINGS = {
   nama: "GALAXY COMPUTER",
@@ -512,7 +514,34 @@ function showInvoicePreview(inv){
 document.getElementById('closePreviewBtn').addEventListener('click', ()=>{
   document.getElementById('invoicePreviewWrap').classList.add('hidden');
 });
-document.getElementById('printBtn').addEventListener('click', ()=> window.print());
+document.getElementById('printBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('printBtn');
+  const originalText = btn.textContent;
+  btn.textContent = '⏳ Menyiapkan PDF...';
+  btn.disabled = true;
+  try{
+    const area = document.getElementById('printArea');
+    const canvas = await html2canvas(area, {scale:3, backgroundColor:'#ffffff', useCORS:true});
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    // Ukuran kertas mengikuti bentuk nota (lebar standar nota kecil), presisi tanpa area kosong
+    const pageWidthMm = 100;
+    const pageHeightMm = pageWidthMm * (canvas.height / canvas.width);
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [pageWidthMm, pageHeightMm]
+    });
+    pdf.addImage(imgData, 'JPEG', 0, 0, pageWidthMm, pageHeightMm);
+    const noTrans = document.getElementById('pv-no') ? document.getElementById('pv-no').textContent : 'invoice';
+    pdf.save('Invoice-' + (noTrans || 'GalaxyComputer') + '.pdf');
+  }catch(err){
+    alert('Gagal membuat PDF: ' + err.message);
+  }finally{
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+});
 
 // ---------- History ----------
 async function loadHistory(){
