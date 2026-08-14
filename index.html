@@ -518,16 +518,30 @@ document.getElementById('printBtn').addEventListener('click', async ()=>{
   const originalText = btn.textContent;
   btn.textContent = '⏳ Menyiapkan PDF...';
   btn.disabled = true;
+  let clone = null;
   try{
-    const area = document.getElementById('printArea');
-    const canvas = await html2canvas(area, {scale:3, backgroundColor:'#ffffff', useCORS:true});
+    const original = document.getElementById('printArea');
+    // Buat salinan invoice dengan lebar tetap (seperti nota lebar/landscape)
+    // supaya teks tidak wrap jadi kotak sempit seperti tampilan HP
+    clone = original.cloneNode(true);
+    clone.id = 'printAreaClone';
+    clone.style.position = 'fixed';
+    clone.style.top = '0';
+    clone.style.left = '-99999px';
+    clone.style.width = '900px';
+    clone.style.maxWidth = '900px';
+    clone.style.boxSizing = 'border-box';
+    document.body.appendChild(clone);
+    await new Promise(r => setTimeout(r, 60));
+
+    const canvas = await html2canvas(clone, {scale:2, backgroundColor:'#ffffff', useCORS:true, width:900});
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const { jsPDF } = window.jspdf;
-    // Ukuran kertas mengikuti bentuk nota (lebar standar nota kecil), presisi tanpa area kosong
-    const pageWidthMm = 100;
+    // Ukuran kertas mengikuti bentuk nota lebar, presisi tanpa area kosong
+    const pageWidthMm = 210;
     const pageHeightMm = pageWidthMm * (canvas.height / canvas.width);
     const pdf = new jsPDF({
-      orientation: 'portrait',
+      orientation: pageWidthMm >= pageHeightMm ? 'landscape' : 'portrait',
       unit: 'mm',
       format: [pageWidthMm, pageHeightMm]
     });
@@ -537,6 +551,7 @@ document.getElementById('printBtn').addEventListener('click', async ()=>{
   }catch(err){
     alert('Gagal membuat PDF: ' + err.message);
   }finally{
+    if(clone && clone.parentNode) clone.parentNode.removeChild(clone);
     btn.textContent = originalText;
     btn.disabled = false;
   }
