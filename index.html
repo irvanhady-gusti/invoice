@@ -225,11 +225,45 @@
   <!-- TAB: RIWAYAT -->
   <div id="tab-riwayat" class="hidden">
     <div class="card">
-      <button class="btn-secondary" id="exportBtn" style="margin-top:0;">⬇ Download Laporan (CSV)</button>
+      <button class="btn-secondary" id="exportBtn" style="margin-top:0;">📊 Lihat Laporan</button>
     </div>
     <div class="card" id="historyList">
       <div class="empty">Memuat riwayat…</div>
     </div>
+
+  <!-- LAPORAN PREVIEW MODAL -->
+  <div id="laporanPreviewWrap" class="hidden">
+    <div class="card" style="overflow-x:auto;">
+      <h3 style="margin-top:0;">Laporan Transaksi</h3>
+      <table id="laporanTable" style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead>
+          <tr style="background:#f2ede1;">
+            <th style="text-align:left; padding:6px; border:1px solid #e2ded3;">No. Trans</th>
+            <th style="text-align:left; padding:6px; border:1px solid #e2ded3;">Tanggal</th>
+            <th style="text-align:left; padding:6px; border:1px solid #e2ded3;">Yth</th>
+            <th style="text-align:left; padding:6px; border:1px solid #e2ded3;">Nama Barang</th>
+            <th style="text-align:center; padding:6px; border:1px solid #e2ded3;">Banyak</th>
+            <th style="text-align:right; padding:6px; border:1px solid #e2ded3;">Harga Satuan</th>
+            <th style="text-align:right; padding:6px; border:1px solid #e2ded3;">Jumlah</th>
+          </tr>
+        </thead>
+        <tbody id="laporanRows"></tbody>
+        <tfoot>
+          <tr style="font-weight:800; background:#f2ede1;">
+            <td colspan="6" style="padding:8px 6px; border:1px solid #e2ded3; text-align:right;">GRAND TOTAL PEMASUKAN</td>
+            <td id="laporanGrandTotal" style="padding:8px 6px; border:1px solid #e2ded3; text-align:right;"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="no-print" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn-secondary" style="margin-top:0;" id="laporanCsvBtn">⬇ Download CSV</button>
+      <button class="btn-secondary" style="margin-top:0;" id="laporanPdfBtn">🖨 Download PDF</button>
+      <button class="btn-secondary" style="margin-top:0;" id="laporanCloseBtn">Tutup</button>
+    </div>
+  </div>
+  </div>
+
   </div>
 
   <!-- TAB: PENGATURAN -->
@@ -625,31 +659,73 @@ async function loadHistory(){
   }
 }
 
-// ---------- Export CSV ----------
-document.getElementById('exportBtn').addEventListener('click', async ()=>{
+// ---------- Laporan: kumpulkan data ----------
+function collectLaporanInvoices(){
+  const keys = lsListInvoiceKeys();
+  const invoices = [];
+  for(const k of keys){
+    try{
+      const v = lsGet(k);
+      if(v) invoices.push(v);
+    }catch(e){}
+  }
+  invoices.sort((a,b)=> (a.createdAt||'').localeCompare(b.createdAt||''));
+  return invoices;
+}
+
+// ---------- Laporan: tampilkan preview ----------
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const invoices = collectLaporanInvoices();
+  if(invoices.length===0){ showToast('Belum ada data untuk dilaporkan'); return; }
+
+  let rowsHtml = '';
+  let grandTotalSum = 0;
+  invoices.forEach(inv=>{
+    grandTotalSum += Number(inv.total)||0;
+    inv.items.forEach((it,idx)=>{
+      rowsHtml += `
+        <tr>
+          <td style="padding:5px 6px; border:1px solid #e2ded3;">${idx===0 ? inv.noTrans : ''}</td>
+          <td style="padding:5px 6px; border:1px solid #e2ded3;">${idx===0 ? inv.tanggal : ''}</td>
+          <td style="padding:5px 6px; border:1px solid #e2ded3;">${idx===0 ? inv.yth : ''}</td>
+          <td style="padding:5px 6px; border:1px solid #e2ded3;">${it.nama}</td>
+          <td style="padding:5px 6px; border:1px solid #e2ded3; text-align:center;">${it.qty}</td>
+          <td style="padding:5px 6px; border:1px solid #e2ded3; text-align:right;">${rupiah(it.harga)}</td>
+          <td style="padding:5px 6px; border:1px solid #e2ded3; text-align:right;">${rupiah(it.jumlah)}</td>
+        </tr>`;
+    });
+  });
+  document.getElementById('laporanRows').innerHTML = rowsHtml;
+  document.getElementById('laporanGrandTotal').textContent = rupiah(grandTotalSum);
+
+  document.getElementById('laporanPreviewWrap').classList.remove('hidden');
+  document.getElementById('laporanPreviewWrap').scrollIntoView({behavior:'smooth'});
+});
+
+document.getElementById('laporanCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('laporanPreviewWrap').classList.add('hidden');
+});
+
+// ---------- Laporan: download CSV ----------
+document.getElementById('laporanCsvBtn').addEventListener('click', ()=>{
   try{
-    const keys = lsListInvoiceKeys();
-    if(keys.length===0){ showToast('Belum ada data untuk diexport'); return; }
-    const invoices = [];
-    for(const k of keys){
-      try{
-        const v = lsGet(k);
-        if(v) invoices.push(v);
-      }catch(e){}
-    }
-    invoices.sort((a,b)=> (a.createdAt||'').localeCompare(b.createdAt||''));
+    const invoices = collectLaporanInvoices();
+    if(invoices.length===0){ showToast('Belum ada data untuk diexport'); return; }
+    let grandTotalSum = 0;
     let csv = 'No Transaksi,Tanggal,Jam,Yth,Nama Barang,Banyak,Harga Satuan,Jumlah,Grand Total Invoice\n';
     invoices.forEach(inv=>{
+      grandTotalSum += Number(inv.total)||0;
       inv.items.forEach((it,idx)=>{
         csv += [
           inv.noTrans, inv.tanggal, inv.jam,
           `"${inv.yth.replace(/"/g,'""')}"`,
           `"${it.nama.replace(/"/g,'""')}"`,
-          it.qty, it.harga, it.jumlah,
-          idx===0 ? inv.total : ''
+          it.qty, rupiah(it.harga), rupiah(it.jumlah),
+          idx===0 ? rupiah(inv.total) : ''
         ].join(',') + '\n';
       });
     });
+    csv += `,,,,,,,GRAND TOTAL PEMASUKAN,${rupiah(grandTotalSum)}\n`;
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -661,7 +737,46 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     URL.revokeObjectURL(url);
     showToast('Laporan CSV diunduh');
   }catch(e){
-    showToast('Gagal membuat laporan');
+    showToast('Gagal membuat laporan CSV');
+  }
+});
+
+// ---------- Laporan: download PDF ----------
+document.getElementById('laporanPdfBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('laporanPdfBtn');
+  const originalText = btn.textContent;
+  btn.textContent = '⏳ Menyiapkan PDF...';
+  btn.disabled = true;
+  let clone = null;
+  try{
+    const table = document.getElementById('laporanTable');
+    clone = table.cloneNode(true);
+    clone.style.position = 'fixed';
+    clone.style.top = '0';
+    clone.style.left = '-99999px';
+    clone.style.width = '900px';
+    clone.style.background = '#fff';
+    document.body.appendChild(clone);
+    await new Promise(r => setTimeout(r, 60));
+
+    const canvas = await html2canvas(clone, {scale:2, backgroundColor:'#ffffff', useCORS:true, width:900});
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pageWidthMm = 280;
+    const pageHeightMm = pageWidthMm * (canvas.height / canvas.width);
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: [pageWidthMm, pageHeightMm]
+    });
+    pdf.addImage(imgData, 'JPEG', 0, 0, pageWidthMm, pageHeightMm);
+    pdf.save(`laporan-galaxy-computer-${new Date().toISOString().slice(0,10)}.pdf`);
+  }catch(err){
+    showToast('Gagal membuat PDF: ' + err.message);
+  }finally{
+    if(clone && clone.parentNode) clone.parentNode.removeChild(clone);
+    btn.textContent = originalText;
+    btn.disabled = false;
   }
 });
 
