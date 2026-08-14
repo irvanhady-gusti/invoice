@@ -70,12 +70,18 @@
     color:var(--blue-deep); font-weight:600;
   }
 
+  .item-row-wrap{margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #d6d1c4;}
+  .item-row-wrap:last-child{border-bottom:none; margin-bottom:0; padding-bottom:0;}
   .item-row{
     display:grid; grid-template-columns:1fr 52px 1fr 22px;
-    gap:6px; align-items:end; margin-bottom:10px; padding-bottom:10px;
-    border-bottom:1px dashed #d6d1c4;
+    gap:6px; align-items:end;
   }
-  .item-row:last-child{border-bottom:none;}
+  .item-row-sub{
+    display:grid; grid-template-columns:110px 1fr; gap:6px; align-items:end; margin-top:6px;
+  }
+  .item-row-sub input{font-size:12px;}
+  .item-untung{font-size:11.5px; color:var(--ink-soft); text-align:right; padding-bottom:8px;}
+  .item-untung b{color:var(--green,#2e7d32);}
   .item-row label{font-size:10px;}
   .item-row .del{
     background:none; border:none; color:var(--danger); font-size:20px; line-height:1;
@@ -182,6 +188,7 @@
   <p>Aplikasi Invoice &amp; Laporan Transaksi</p>
   <div class="tabs">
     <button class="tab active" data-tab="buat">Buat Invoice</button>
+    <button class="tab" data-tab="katalog">Katalog</button>
     <button class="tab" data-tab="riwayat">Riwayat</button>
     <button class="tab" data-tab="pengaturan">Pengaturan</button>
   </div>
@@ -211,15 +218,46 @@
     <div class="card">
       <label style="font-size:11.5px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.5px;">Daftar Barang</label>
       <div id="itemsContainer" style="margin-top:10px;"></div>
+      <datalist id="katalogDatalist"></datalist>
       <button class="add-item" id="addItemBtn">+ Tambah Barang</button>
 
       <div class="total-row">
         <div class="label">Grand Total</div>
         <div class="value" id="grandTotalDisplay">Rp 0</div>
       </div>
+      <div class="total-row" style="border-top:none; padding-top:4px; margin-top:0;">
+        <div class="label" style="font-size:12px; color:var(--ink-soft);">Estimasi Untung (internal)</div>
+        <div class="value" id="untungDisplay" style="font-size:14px; color:var(--green,#2e7d32);">Rp 0</div>
+      </div>
     </div>
 
     <button class="btn-primary" id="saveInvoiceBtn">Simpan &amp; Cetak Invoice</button>
+  </div>
+
+  <!-- TAB: KATALOG -->
+  <div id="tab-katalog" class="hidden">
+    <div class="card">
+      <label style="font-size:11.5px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.5px;">Tambah / Edit Barang</label>
+      <div class="field" style="margin-top:8px;">
+        <label>Nama Barang</label>
+        <input type="text" id="katNama" placeholder="Nama barang">
+      </div>
+      <div class="meta-row">
+        <div class="field">
+          <label>Harga Modal</label>
+          <input type="number" min="0" id="katModal" placeholder="0">
+        </div>
+        <div class="field">
+          <label>Harga Jual</label>
+          <input type="number" min="0" id="katJual" placeholder="0">
+        </div>
+      </div>
+      <button class="btn-primary" id="katSaveBtn" style="margin-top:4px;">Simpan Barang</button>
+      <button class="btn-secondary hidden" id="katCancelEditBtn">Batal Edit</button>
+    </div>
+    <div class="card" id="katalogList">
+      <div class="empty">Memuat katalog…</div>
+    </div>
   </div>
 
   <!-- TAB: RIWAYAT -->
@@ -243,15 +281,22 @@
             <th style="text-align:left; padding:6px; border:1px solid #e2ded3;">Yth</th>
             <th style="text-align:left; padding:6px; border:1px solid #e2ded3;">Nama Barang</th>
             <th style="text-align:center; padding:6px; border:1px solid #e2ded3;">Banyak</th>
+            <th style="text-align:right; padding:6px; border:1px solid #e2ded3;">Harga Modal</th>
             <th style="text-align:right; padding:6px; border:1px solid #e2ded3;">Harga Satuan</th>
             <th style="text-align:right; padding:6px; border:1px solid #e2ded3;">Jumlah</th>
+            <th style="text-align:right; padding:6px; border:1px solid #e2ded3;">Untung</th>
           </tr>
         </thead>
         <tbody id="laporanRows"></tbody>
         <tfoot>
           <tr style="font-weight:800; background:#f2ede1;">
-            <td colspan="6" style="padding:8px 6px; border:1px solid #e2ded3; text-align:right;">GRAND TOTAL PEMASUKAN</td>
+            <td colspan="7" style="padding:8px 6px; border:1px solid #e2ded3; text-align:right;">GRAND TOTAL PEMASUKAN</td>
             <td id="laporanGrandTotal" style="padding:8px 6px; border:1px solid #e2ded3; text-align:right;"></td>
+            <td style="padding:8px 6px; border:1px solid #e2ded3;"></td>
+          </tr>
+          <tr style="font-weight:800; background:#e8f3e8;">
+            <td colspan="8" style="padding:8px 6px; border:1px solid #e2ded3; text-align:right;">TOTAL UNTUNG KESELURUHAN</td>
+            <td id="laporanGrandUntung" style="padding:8px 6px; border:1px solid #e2ded3; text-align:right; color:#2e7d32;"></td>
           </tr>
         </tfoot>
       </table>
@@ -361,6 +406,8 @@ const DEFAULT_SETTINGS = {
 let settings = {...DEFAULT_SETTINGS};
 let items = [];
 let itemUid = 0;
+let katalog = [];
+let katEditId = null;
 
 function rupiah(n){
   return "Rp " + Math.round(n).toLocaleString('id-ID');
@@ -372,18 +419,19 @@ document.querySelectorAll('.tab').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    ['buat','riwayat','pengaturan'].forEach(t=>{
+    ['buat','katalog','riwayat','pengaturan'].forEach(t=>{
       document.getElementById('tab-'+t).classList.toggle('hidden', t!==btn.dataset.tab);
     });
     document.getElementById('invoicePreviewWrap').classList.add('hidden');
     if(btn.dataset.tab==='riwayat') loadHistory();
+    if(btn.dataset.tab==='katalog') loadKatalog();
   });
 });
 
 // ---------- Items ----------
 function addItemRow(prefill){
   const id = 'it'+(itemUid++);
-  const row = {id, nama:'', qty:1, harga:0};
+  const row = {id, nama:'', qty:1, harga:0, modal:0};
   if(prefill) Object.assign(row, prefill);
   items.push(row);
   renderItems();
@@ -392,22 +440,32 @@ function renderItems(){
   const c = document.getElementById('itemsContainer');
   c.innerHTML = '';
   items.forEach((it)=>{
+    const untung = (it.harga - it.modal) * it.qty;
     const div = document.createElement('div');
-    div.className = 'item-row';
+    div.className = 'item-row-wrap';
     div.innerHTML = `
-      <div>
-        <label>Nama Barang</label>
-        <input type="text" data-field="nama" data-id="${it.id}" value="${it.nama.replace(/"/g,'&quot;')}" placeholder="Nama barang">
+      <div class="item-row">
+        <div>
+          <label>Nama Barang</label>
+          <input type="text" data-field="nama" data-id="${it.id}" value="${it.nama.replace(/"/g,'&quot;')}" placeholder="Nama barang" list="katalogDatalist">
+        </div>
+        <div>
+          <label>Qty</label>
+          <input type="number" min="0" data-field="qty" data-id="${it.id}" value="${it.qty}">
+        </div>
+        <div>
+          <label>Harga Satuan</label>
+          <input type="number" min="0" data-field="harga" data-id="${it.id}" value="${it.harga}">
+        </div>
+        <button class="del" data-del="${it.id}" title="Hapus">×</button>
       </div>
-      <div>
-        <label>Qty</label>
-        <input type="number" min="0" data-field="qty" data-id="${it.id}" value="${it.qty}">
+      <div class="item-row-sub">
+        <div>
+          <label>Harga Modal</label>
+          <input type="number" min="0" data-field="modal" data-id="${it.id}" value="${it.modal}">
+        </div>
+        <div class="item-untung">Untung: <b>${rupiah(untung)}</b></div>
       </div>
-      <div>
-        <label>Harga Satuan</label>
-        <input type="number" min="0" data-field="harga" data-id="${it.id}" value="${it.harga}">
-      </div>
-      <button class="del" data-del="${it.id}" title="Hapus">×</button>
     `;
     c.appendChild(div);
   });
@@ -418,6 +476,19 @@ function renderItems(){
       const item = items.find(i=>i.id===id);
       if(!item) return;
       item[field] = field==='nama' ? e.target.value : parseFloat(e.target.value)||0;
+      if(field==='nama'){
+        const match = katalog.find(k=> k.nama.trim().toLowerCase() === e.target.value.trim().toLowerCase());
+        if(match){
+          item.harga = match.jual;
+          item.modal = match.modal;
+          renderItems();
+          return;
+        }
+      }
+      // update untung text tanpa render ulang semua input (biar fokus ketik tidak hilang)
+      const untung = (item.harga - item.modal) * item.qty;
+      const wrap = e.target.closest('.item-row-wrap');
+      if(wrap) wrap.querySelector('.item-untung b').textContent = rupiah(untung);
       updateGrandTotal();
     });
   });
@@ -432,7 +503,9 @@ function renderItems(){
 }
 function updateGrandTotal(){
   const total = items.reduce((s,i)=> s + (i.qty*i.harga), 0);
+  const untungTotal = items.reduce((s,i)=> s + ((i.harga-i.modal)*i.qty), 0);
   document.getElementById('grandTotalDisplay').textContent = rupiah(total);
+  document.getElementById('untungDisplay').textContent = rupiah(untungTotal);
   return total;
 }
 document.getElementById('addItemBtn').addEventListener('click', ()=>addItemRow());
@@ -466,6 +539,128 @@ function lsListInvoiceKeys(){
   }
   return keys;
 }
+
+// ---------- Katalog Barang (nama, harga modal, harga jual) ----------
+function loadKatalogFromStorage(){
+  try{
+    const k = lsGet('katalog');
+    katalog = Array.isArray(k) ? k : [];
+  }catch(e){ katalog = []; }
+}
+function saveKatalogToStorage(){
+  try{ lsSet('katalog', katalog); }catch(e){ showToast('Gagal menyimpan katalog'); }
+}
+// Simpan otomatis barang dari invoice ke katalog: barang baru ditambahkan,
+// barang yang sudah ada di-update harganya ke harga terbaru
+function upsertKatalogFromItems(invoiceItems){
+  loadKatalogFromStorage();
+  let changed = false;
+  invoiceItems.forEach(it=>{
+    const namaTrim = it.nama.trim();
+    if(!namaTrim) return;
+    const existing = katalog.find(k=> k.nama.trim().toLowerCase() === namaTrim.toLowerCase());
+    if(existing){
+      if(existing.modal !== (it.modal||0) || existing.jual !== it.harga){
+        existing.modal = it.modal||0;
+        existing.jual = it.harga;
+        changed = true;
+      }
+    }else{
+      katalog.push({id:'k'+Date.now()+Math.random().toString(36).slice(2,6), nama:namaTrim, modal:it.modal||0, jual:it.harga});
+      changed = true;
+    }
+  });
+  if(changed){
+    saveKatalogToStorage();
+    refreshKatalogDatalist();
+  }
+}
+function refreshKatalogDatalist(){
+  const dl = document.getElementById('katalogDatalist');
+  if(!dl) return;
+  dl.innerHTML = katalog.map(k=>`<option value="${k.nama.replace(/"/g,'&quot;')}"></option>`).join('');
+}
+function loadKatalog(){
+  loadKatalogFromStorage();
+  refreshKatalogDatalist();
+  renderKatalogList();
+}
+function renderKatalogList(){
+  const el = document.getElementById('katalogList');
+  if(katalog.length===0){ el.innerHTML = '<div class="empty">Belum ada barang di katalog.</div>'; return; }
+  el.innerHTML = '';
+  katalog.slice().sort((a,b)=>a.nama.localeCompare(b.nama)).forEach(k=>{
+    const untungSatuan = k.jual - k.modal;
+    const div = document.createElement('div');
+    div.className = 'hist-item';
+    div.style.flexDirection = 'column';
+    div.style.alignItems = 'stretch';
+    div.innerHTML = `
+      <div style="display:flex; justify-content:space-between;">
+        <div>
+          <div class="no">${k.nama}</div>
+          <div class="sub">Modal: ${rupiah(k.modal)} · Jual: ${rupiah(k.jual)}</div>
+        </div>
+        <div class="amt" style="color:${untungSatuan>=0?'var(--green,#2e7d32)':'var(--danger)'};">${rupiah(untungSatuan)}</div>
+      </div>
+      <div class="hist-actions">
+        <button data-edit="${k.id}">Edit</button>
+        <button data-del="${k.id}" style="color:var(--danger);">Hapus</button>
+      </div>
+    `;
+    el.appendChild(div);
+  });
+  el.querySelectorAll('[data-edit]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const k = katalog.find(x=>x.id===b.dataset.edit);
+      if(!k) return;
+      katEditId = k.id;
+      document.getElementById('katNama').value = k.nama;
+      document.getElementById('katModal').value = k.modal;
+      document.getElementById('katJual').value = k.jual;
+      document.getElementById('katCancelEditBtn').classList.remove('hidden');
+      document.getElementById('katNama').scrollIntoView({behavior:'smooth', block:'center'});
+    });
+  });
+  el.querySelectorAll('[data-del]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      if(!confirm('Hapus barang ini dari katalog?')) return;
+      katalog = katalog.filter(k=>k.id!==b.dataset.del);
+      saveKatalogToStorage();
+      refreshKatalogDatalist();
+      renderKatalogList();
+      showToast('Barang dihapus dari katalog');
+    });
+  });
+}
+document.getElementById('katSaveBtn').addEventListener('click', ()=>{
+  const nama = document.getElementById('katNama').value.trim();
+  const modal = parseFloat(document.getElementById('katModal').value)||0;
+  const jual = parseFloat(document.getElementById('katJual').value)||0;
+  if(!nama){ showToast('Isi nama barang dulu'); return; }
+  if(katEditId){
+    const k = katalog.find(x=>x.id===katEditId);
+    if(k){ k.nama=nama; k.modal=modal; k.jual=jual; }
+    katEditId = null;
+    document.getElementById('katCancelEditBtn').classList.add('hidden');
+  }else{
+    katalog.push({id:'k'+Date.now()+Math.random().toString(36).slice(2,6), nama, modal, jual});
+  }
+  saveKatalogToStorage();
+  refreshKatalogDatalist();
+  renderKatalogList();
+  document.getElementById('katNama').value = '';
+  document.getElementById('katModal').value = '';
+  document.getElementById('katJual').value = '';
+  showToast('Barang tersimpan di katalog');
+});
+document.getElementById('katCancelEditBtn').addEventListener('click', ()=>{
+  katEditId = null;
+  document.getElementById('katNama').value = '';
+  document.getElementById('katModal').value = '';
+  document.getElementById('katJual').value = '';
+  document.getElementById('katCancelEditBtn').classList.add('hidden');
+});
 
 async function loadSettings(){
   try{
@@ -510,8 +705,9 @@ document.getElementById('saveInvoiceBtn').addEventListener('click', async ()=>{
     tanggal: `${pad(now.getDate(),2)}-${pad(now.getMonth()+1,2)}-${now.getFullYear()}`,
     jam: `${pad(now.getHours(),2)}:${pad(now.getMinutes(),2)}`,
     yth,
-    items: validItems.map(i=>({nama:i.nama, qty:i.qty, harga:i.harga, jumlah:i.qty*i.harga})),
+    items: validItems.map(i=>({nama:i.nama, qty:i.qty, harga:i.harga, modal:i.modal||0, jumlah:i.qty*i.harga, untung:(i.harga-(i.modal||0))*i.qty})),
     total: validItems.reduce((s,i)=>s+i.qty*i.harga,0),
+    totalUntung: validItems.reduce((s,i)=>s+((i.harga-(i.modal||0))*i.qty),0),
     createdAt: now.toISOString()
   };
 
@@ -519,6 +715,7 @@ document.getElementById('saveInvoiceBtn').addEventListener('click', async ()=>{
     lsSet('invoice:'+noTrans, invoice);
     settings.nextNo += 1;
     await saveSettingsToStorage();
+    upsertKatalogFromItems(validItems);
     showInvoicePreview(invoice);
     // reset form
     items = [];
@@ -628,7 +825,10 @@ async function loadHistory(){
             <div class="no">No. ${inv.noTrans} — ${inv.yth}</div>
             <div class="sub">${inv.tanggal} · ${inv.jam} · ${inv.items.length} item</div>
           </div>
-          <div class="amt">${rupiah(inv.total)}</div>
+          <div style="text-align:right;">
+            <div class="amt">${rupiah(inv.total)}</div>
+            <div style="font-size:11px; color:var(--green,#2e7d32);">Untung: ${rupiah(inv.totalUntung||0)}</div>
+          </div>
         </div>
         <div class="hist-actions">
           <button data-view="${inv.noTrans}">Lihat / Cetak</button>
@@ -679,9 +879,12 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
 
   let rowsHtml = '';
   let grandTotalSum = 0;
+  let grandUntungSum = 0;
   invoices.forEach(inv=>{
     grandTotalSum += Number(inv.total)||0;
+    grandUntungSum += Number(inv.totalUntung)||0;
     inv.items.forEach((it,idx)=>{
+      const untungItem = it.untung!==undefined ? it.untung : ((it.harga-(it.modal||0))*it.qty);
       rowsHtml += `
         <tr>
           <td style="padding:5px 6px; border:1px solid #e2ded3;">${idx===0 ? inv.noTrans : ''}</td>
@@ -689,12 +892,15 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
           <td style="padding:5px 6px; border:1px solid #e2ded3;">${idx===0 ? inv.yth : ''}</td>
           <td style="padding:5px 6px; border:1px solid #e2ded3;">${it.nama}</td>
           <td style="padding:5px 6px; border:1px solid #e2ded3; text-align:center;">${it.qty}</td>
+          <td style="padding:5px 6px; border:1px solid #e2ded3; text-align:right;">${rupiah(it.modal||0)}</td>
           <td style="padding:5px 6px; border:1px solid #e2ded3; text-align:right;">${rupiah(it.harga)}</td>
           <td style="padding:5px 6px; border:1px solid #e2ded3; text-align:right;">${rupiah(it.jumlah)}</td>
+          <td style="padding:5px 6px; border:1px solid #e2ded3; text-align:right; color:#2e7d32;">${rupiah(untungItem)}</td>
         </tr>`;
     });
   });
   document.getElementById('laporanRows').innerHTML = rowsHtml;
+  document.getElementById('laporanGrandUntung').textContent = rupiah(grandUntungSum);
   document.getElementById('laporanGrandTotal').textContent = rupiah(grandTotalSum);
 
   document.getElementById('laporanPreviewWrap').classList.remove('hidden');
@@ -773,8 +979,10 @@ function showToast(msg){
   }catch(e){
     console.error('loadSettings error', e);
   }
+  loadKatalogFromStorage();
+  refreshKatalogDatalist();
   refreshMeta();
-  if(items.length===0) addItemRow({nama:'', qty:1, harga:0});
+  if(items.length===0) addItemRow({nama:'', qty:1, harga:0, modal:0});
 })();
 </script>
 
