@@ -257,7 +257,6 @@
       </table>
     </div>
     <div class="no-print" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-      <button class="btn-secondary" style="margin-top:0;" id="laporanCsvBtn">⬇ Download CSV</button>
       <button class="btn-secondary" style="margin-top:0;" id="laporanPdfBtn">🖨 Download PDF</button>
       <button class="btn-secondary" style="margin-top:0;" id="laporanCloseBtn">Tutup</button>
     </div>
@@ -706,41 +705,6 @@ document.getElementById('laporanCloseBtn').addEventListener('click', ()=>{
   document.getElementById('laporanPreviewWrap').classList.add('hidden');
 });
 
-// ---------- Laporan: download CSV ----------
-document.getElementById('laporanCsvBtn').addEventListener('click', ()=>{
-  try{
-    const invoices = collectLaporanInvoices();
-    if(invoices.length===0){ showToast('Belum ada data untuk diexport'); return; }
-    let grandTotalSum = 0;
-    let csv = 'No Transaksi,Tanggal,Jam,Yth,Nama Barang,Banyak,Harga Satuan,Jumlah,Grand Total Invoice\n';
-    invoices.forEach(inv=>{
-      grandTotalSum += Number(inv.total)||0;
-      inv.items.forEach((it,idx)=>{
-        csv += [
-          inv.noTrans, inv.tanggal, inv.jam,
-          `"${inv.yth.replace(/"/g,'""')}"`,
-          `"${it.nama.replace(/"/g,'""')}"`,
-          it.qty, rupiah(it.harga), rupiah(it.jumlah),
-          idx===0 ? rupiah(inv.total) : ''
-        ].join(',') + '\n';
-      });
-    });
-    csv += `,,,,,,,GRAND TOTAL PEMASUKAN,${rupiah(grandTotalSum)}\n`;
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `laporan-galaxy-computer-${new Date().toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('Laporan CSV diunduh');
-  }catch(e){
-    showToast('Gagal membuat laporan CSV');
-  }
-});
-
 // ---------- Laporan: download PDF ----------
 document.getElementById('laporanPdfBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('laporanPdfBtn');
@@ -762,14 +726,27 @@ document.getElementById('laporanPdfBtn').addEventListener('click', async ()=>{
     const canvas = await html2canvas(clone, {scale:2, backgroundColor:'#ffffff', useCORS:true, width:900});
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const { jsPDF } = window.jspdf;
-    const pageWidthMm = 280;
-    const pageHeightMm = pageWidthMm * (canvas.height / canvas.width);
+    // Kertas A4 landscape (297 x 210 mm), konten diskalakan agar pas dengan margin
+    const pageWidthMm = 297;
+    const pageHeightMm = 210;
+    const marginMm = 10;
+    const maxW = pageWidthMm - marginMm*2;
+    const maxH = pageHeightMm - marginMm*2;
+    const imgRatio = canvas.height / canvas.width;
+    let drawW = maxW;
+    let drawH = drawW * imgRatio;
+    if(drawH > maxH){
+      drawH = maxH;
+      drawW = drawH / imgRatio;
+    }
+    const offsetX = (pageWidthMm - drawW) / 2;
+    const offsetY = marginMm;
     const pdf = new jsPDF({
       orientation: 'landscape',
       unit: 'mm',
-      format: [pageWidthMm, pageHeightMm]
+      format: 'a4'
     });
-    pdf.addImage(imgData, 'JPEG', 0, 0, pageWidthMm, pageHeightMm);
+    pdf.addImage(imgData, 'JPEG', offsetX, offsetY, drawW, drawH);
     pdf.save(`laporan-galaxy-computer-${new Date().toISOString().slice(0,10)}.pdf`);
   }catch(err){
     showToast('Gagal membuat PDF: ' + err.message);
