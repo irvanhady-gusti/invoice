@@ -206,7 +206,10 @@
         </div>
         <div class="field">
           <label>Tanggal &amp; Jam</label>
-          <div class="meta-static" id="dateTimeDisplay">—</div>
+          <div style="display:flex; gap:6px;">
+            <input type="date" id="tglInput" style="flex:1;">
+            <input type="time" id="jamInput" style="width:88px;">
+          </div>
         </div>
       </div>
       <div class="field">
@@ -513,10 +516,17 @@ document.getElementById('addItemBtn').addEventListener('click', ()=>addItemRow()
 // ---------- Meta (no trans, date/time) ----------
 function refreshMeta(){
   document.getElementById('noTransDisplay').textContent = pad(settings.nextNo, 5);
-  const now = new Date();
-  const dd = pad(now.getDate(),2), mm = pad(now.getMonth()+1,2), yyyy = now.getFullYear();
-  const hh = pad(now.getHours(),2), min = pad(now.getMinutes(),2);
-  document.getElementById('dateTimeDisplay').textContent = `${dd}-${mm}-${yyyy}  ${hh}:${min}`;
+  const tglEl = document.getElementById('tglInput');
+  const jamEl = document.getElementById('jamInput');
+  // hanya isi default kalau field masih kosong (tidak menimpa tanggal yang sudah diubah manual)
+  if(tglEl && !tglEl.value){
+    const now = new Date();
+    tglEl.value = `${now.getFullYear()}-${pad(now.getMonth()+1,2)}-${pad(now.getDate(),2)}`;
+  }
+  if(jamEl && !jamEl.value){
+    const now = new Date();
+    jamEl.value = `${pad(now.getHours(),2)}:${pad(now.getMinutes(),2)}`;
+  }
 }
 setInterval(refreshMeta, 30000);
 
@@ -698,17 +708,24 @@ document.getElementById('saveInvoiceBtn').addEventListener('click', async ()=>{
   if(!yth){ showToast('Isi nama pelanggan (Yth) dulu'); return; }
   if(validItems.length===0){ showToast('Tambahkan minimal 1 barang'); return; }
 
+  const tglVal = document.getElementById('tglInput').value; // format YYYY-MM-DD
+  const jamVal = document.getElementById('jamInput').value; // format HH:MM
+  if(!tglVal){ showToast('Isi tanggal dulu'); return; }
+  const [yyyy, mm, dd] = tglVal.split('-');
   const now = new Date();
+  const jamFinal = jamVal || `${pad(now.getHours(),2)}:${pad(now.getMinutes(),2)}`;
+
   const noTrans = pad(settings.nextNo, 5);
+  const createdAtIso = new Date(`${tglVal}T${jamFinal}:00`).toISOString();
   const invoice = {
     noTrans,
-    tanggal: `${pad(now.getDate(),2)}-${pad(now.getMonth()+1,2)}-${now.getFullYear()}`,
-    jam: `${pad(now.getHours(),2)}:${pad(now.getMinutes(),2)}`,
+    tanggal: `${dd}-${mm}-${yyyy}`,
+    jam: jamFinal,
     yth,
     items: validItems.map(i=>({nama:i.nama, qty:i.qty, harga:i.harga, modal:i.modal||0, jumlah:i.qty*i.harga, untung:(i.harga-(i.modal||0))*i.qty})),
     total: validItems.reduce((s,i)=>s+i.qty*i.harga,0),
     totalUntung: validItems.reduce((s,i)=>s+((i.harga-(i.modal||0))*i.qty),0),
-    createdAt: now.toISOString()
+    createdAt: createdAtIso
   };
 
   try{
@@ -721,6 +738,8 @@ document.getElementById('saveInvoiceBtn').addEventListener('click', async ()=>{
     items = [];
     addItemRow();
     document.getElementById('ythInput').value = '';
+    document.getElementById('tglInput').value = '';
+    document.getElementById('jamInput').value = '';
     refreshMeta();
     showToast('Invoice tersimpan');
   }catch(e){
